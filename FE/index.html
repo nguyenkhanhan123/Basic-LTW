@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex align-items-center" style="height: 100vh;">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-4">
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <h3 class="text-center mb-4">Đăng nhập</h3>
+            <form id="loginForm">
+              <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input id="email" type="email" class="form-control" placeholder="Nhập email..." required>
+              </div>
+              <div class="mb-3">
+                <label for="password" class="form-label">Mật khẩu</label>
+                <input id="password" type="password" class="form-control" placeholder="Nhập mật khẩu..." required>
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
+            </form>
+            <p class="text-center mt-3">
+              Chưa có tài khoản? <a href="register.html">Đăng ký</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { login } from './api/api.js';
+
+    const form = document.getElementById('loginForm');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if (!email || !password) {
+        alert('Vui lòng nhập đầy đủ Email và Mật khẩu!');
+        return;
+      }
+
+      try {
+        const res = await login(email, password);
+        alert(res.message);
+
+        localStorage.setItem('user_id', res.user_id);
+        
+        localStorage.setItem('income', res.income);
+
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        alert(err.message || 'Đăng nhập thất bại!');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# ===== PYTHON =====
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# env files
+.env
+*.env
+
+# ===== EDITOR / IDE =====
+.vscode/
+.idea/
+*.swp
+
+# ===== LOGS =====
+*.log
+
+# ===== OS files =====
+.DS_Store
+Thumbs.db
+
+# ===== FRONTEND =====
+node_modules/         # nếu bạn có cài npm (dự phòng)
+dist/
+build/
+
+# ===== MISC =====
+*.bak
+*.tmp

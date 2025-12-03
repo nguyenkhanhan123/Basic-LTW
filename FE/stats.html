@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thống kê chi tiêu</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .chart-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 30px;
+      flex-wrap: wrap;
+      margin-top: 30px;
+    }
+    .chart-box {
+      text-align: center;
+      width: 45%;
+    }
+    canvas {
+      max-width: 100%;
+      height: 260px !important;
+    }
+    #aiResult {
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Quản lý chi tiêu</a>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <h3 class="mb-3">Thống kê chi tiêu</h3>
+    
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <label for="monthSelect" class="form-label">Chọn tháng</label>
+        <select id="monthSelect" class="form-select">
+          <option value="">Chọn tháng</option>
+          <option value="1">Tháng 1</option>
+          <option value="2">Tháng 2</option>
+          <option value="3">Tháng 3</option>
+          <option value="4">Tháng 4</option>
+          <option value="5">Tháng 5</option>
+          <option value="6">Tháng 6</option>
+          <option value="7">Tháng 7</option>
+          <option value="8">Tháng 8</option>
+          <option value="9">Tháng 9</option>
+          <option value="10">Tháng 10</option>
+          <option value="11">Tháng 11</option>
+          <option value="12">Tháng 12</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="yearSelect" class="form-label">Chọn năm</label>
+        <select id="yearSelect" class="form-select">
+          <option value="">Chọn năm</option>
+          <option value="2023">2023</option>
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button id="statsBtn" class="btn btn-primary w-100">Thống kê</button>
+      </div>
+    </div>
+
+    <div id="chartsSection" style="display: none;" class="chart-container">
+      <div class="chart-box">
+        <h5>Biểu đồ cột: Theo ngày</h5>
+        <canvas id="dayChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h5>Biểu đồ tròn: Theo danh mục</h5>
+        <canvas id="categoryChart"></canvas>
+      </div>
+    </div>
+
+    <div id="aiSection" style="display: none;" class="mt-4 text-center">
+      <button id="aiBtn" class="btn btn-success">Đánh giá bằng AI</button>
+      <div id="aiResult" class="alert alert-light mt-3"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getExpensesByMonth } from './api/api.js';
+    import { sendMessage, createMessage } from './api/ai_api.js';
+
+    const user_id = localStorage.getItem('user_id');
+    if (!user_id) {
+      alert('Vui lòng đăng nhập trước!');
+      window.location.href = 'index.html';
+    }
+
+    const monthSelect = document.getElementById('monthSelect');
+    const yearSelect = document.getElementById('yearSelect');
+    const statsBtn = document.getElementById('statsBtn');
+    const chartsSection = document.getElementById('chartsSection');
+    const aiSection = document.getElementById('aiSection');
+    const aiBtn = document.getElementById('aiBtn');
+    const aiResult = document.getElementById('aiResult');
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    const dayCtx = document.getElementById('dayChart').getContext('2d');
+    let categoryChart, dayChart;
+    let expenseDescriptions = "";
+
+    async function generateStats(month, year) {
+      try {
+        const expenses = await getExpensesByMonth(user_id, year, month);
+        if (!expenses.length) {
+          alert('Không có dữ liệu trong tháng này.');
+          chartsSection.style.display = 'none';
+          aiSection.style.display = 'none';
+          expenseDescriptions = "";
+          return;
+        }
+
+        expenseDescriptions = expenses.map(e => {
+          const d = new Date(e.date);
+          const dateStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+          return `Ngày ${dateStr} chi ${e.amount.toLocaleString()} VNĐ cho việc ${e.category}`;
+        }).join("\n");
+
+        console.log("Chuỗi dữ liệu chi tiêu:\n" + expenseDescriptions);
+
+        const categoryData = {};
+        const dayData = {};
+        expenses.forEach(e => {
+          categoryData[e.category] = (categoryData[e.category] || 0) + e.amount;
+          const day = new Date(e.date).getDate();
+          dayData[day] = (dayData[day] || 0) + e.amount;
+        });
+
+        const categoryLabels = Object.keys(categoryData);
+        const categoryValues = Object.values(categoryData);
+        const dayLabels = Object.keys(dayData).sort((a, b) => a - b);
+        const dayValues = dayLabels.map(d => dayData[d]);
+
+        if (categoryChart) categoryChart.destroy();
+        if (dayChart) dayChart.destroy();
+
+        categoryChart = new Chart(categoryCtx, {
+          type: 'pie',
+          data: {
+            labels: categoryLabels,
+            datasets: [{
+              data: categoryValues,
+              backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        dayChart = new Chart(dayCtx, {
+          type: 'bar',
+          data: {
+            labels: dayLabels,
+            datasets: [{
+              label: 'Chi tiêu theo ngày',
+              data: dayValues,
+              backgroundColor: '#007bff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+
+        chartsSection.style.display = 'flex';
+        aiSection.style.display = 'block';
+        aiResult.textContent = "";
+      } catch (err) {
+        alert('Lỗi khi tải thống kê: ' + (err.message || err));
+      }
+    }
+
+    statsBtn.addEventListener('click', () => {
+      const month = monthSelect.value;
+      const year = yearSelect.value;
+
+      if (!month || !year) {
+        alert('Vui lòng chọn tháng và năm!');
+        return;
+      }
+
+      generateStats(month, year);
+    });
+
+    aiBtn.addEventListener('click', async () => {
+      if (!expenseDescriptions) {
+        alert("Chưa có dữ liệu để đánh giá!");
+        return;
+      }
+
+      aiResult.textContent = "Đang đánh giá, vui lòng đợi...";
+      aiBtn.disabled = true;
+
+      try {
+        const income = localStorage.getItem('income');
+
+        const messages = [
+          createMessage("system", "Bạn là chuyên gia tài chính, hãy đánh giá tình hình chi tiêu của người dùng."),
+          createMessage("user", `Thu nhập hàng tháng của người này là ${Number(income).toLocaleString()} VNĐ.Dưới đây là danh sách chi tiêu:\n${expenseDescriptions}\nHãy đánh giá xem người này chi tiêu có hợp lý không, và gợi ý cách tiết kiệm.`)
+        ];
+
+        const res = await sendMessage("gpt-3.5-turbo", messages);
+        aiResult.textContent = res.content;
+      } catch (err) {
+        aiResult.textContent = "Lỗi khi gọi AI: " + (err.message || err);
+      } finally {
+        aiBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
